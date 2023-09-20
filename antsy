@@ -1,0 +1,239 @@
+#!/usr/bin/env zsh
+
+return_reset=false
+print_escaped=false
+
+package=antsy
+
+style=''
+
+fg_color=''
+bg_color=''
+ul_color=''
+
+fg_color_mode='8'
+bg_color_mode='8'
+ul_color_mode='8'
+
+function print_help() {
+    echo "$package - simple utility for building ansi escape codes for styling text"
+    echo " "
+    echo "usage: "
+    echo "$package [options]"
+    echo
+    echo "note: "
+    echo "    \033m[1;available colors:\033[0m"
+    echo "        \033[1;100;30mblack\033[0m, \033[1;90mdark gray\033[0m, \033[1;34mblue\033[0m, \033[1;94mlight blue\033[0m, \033[1;32mgreen\033[0m, \033[1;92mlight green\033[0m, \033[1;36mcyan\033[0m, \033[1;96mlight cyan\033[0m,"
+    echo "        \033[1;31mred\033[0m, \033[1;91mlight red\033[0m, \033[1;35mpurple\033[0m, \033[1;95mlight purple\033[0m, \033[1;33mbrown\033[0m, \033[1;93myellow\033[0m, \033[1;37mlight gray\033[0m, \033[1;97mwhite\033[0m"
+    echo " "
+    echo "examples: "
+    echo "$> echo \"\$($package -s bold -fg red -bg white) bumfuzzled \$($package -r)\""
+    printf "\033[31;107mbumfuzzled\033[0m\n"
+    echo
+    echo "$> echo \"\$($package -rgb -s \"italic dunderline\" -fg 255 0 255) Hullaballoo \$($package -r)\""
+    printf "\033[21;3;38;2;255;0;255mHullaballoo\033[0m\n"
+    echo " "
+    echo "options:"
+    echo "-h, --help                show this help message"
+    echo "-rgb                      switch to enable RGB colors. when supplied, colors are specified by three integers in [0,255]"
+    echo "-r                        return escape code to reset style"
+    echo "-p, --print               print escape code"
+    echo "-s, --style=STYLE         style (or styles if given a quoted list) to apply to text"
+    echo "    \033[1mallowed options\033[0m:"
+    echo "        \033[33;1mreset\033[0m:                       reset all styles"
+    echo "        \033[33;1mdefault\033[0m:                     revert to default style"
+    echo "        \033[33;1mbold / notbold\033[0m:              switch \033[1mon\033[0m/\033[2moff\033[0m \033[1mbold font weight\033[0m"
+    echo "        \033[33;1mfaint / notfaint\033[0m:            switch \033[1mon\033[0m/\033[2moff\033[0m \033[2mfaint font weight\033[0m"
+    echo "        \033[33;1munderline / notunderline\033[0m:    switch \033[1mon\033[0m/\033[2moff\033[0m \033[4munderline\033[0m"
+    echo "        \033[33;1mdunderline / notdunderline\033[0m:  switch \033[1mon\033[0m/\033[2moff\033[0m \033[21mdouble underline\033[0m"
+    echo "        \033[33;1mitalic / notitalic\033[0m:          switch \033[1mon\033[0m/\033[2moff\033[0m \033[3mitalic style\033[0m"
+    echo "        \033[33;1minvert / notfaint\033[0m:           switch \033[1mon\033[0m/\033[2moff\033[0m \033[7mcolor inversion\033[0m"
+    echo "        \033[33;1mstrike / notfaint\033[0m:           switch \033[1mon\033[0m/\033[2moff\033[0m \033[9mstrikethrough\033[0m"
+    echo "-fg, --fg_color=FG_COLOR  color fore characters"
+    echo "-bg, --bg_color=BG_COLOR  color for background"
+    echo "-ul, --ul_color=UL_COLOR  color for underline"
+    exit 0
+}
+
+
+if [ $# -eq  0 ]; then
+    print_help
+fi
+
+while test $# -gt 0; do
+    case "$1" in
+        -s)
+            shift
+            if test $# -gt 0; then
+                style=$1
+            else
+                echo "no style specified"
+                exit 1
+            fi
+            shift
+        ;;
+        --style*)
+            style="${1/[^=]*=/}"
+            shift 1
+        ;;
+        -fg)
+            shift
+            if test $# -gt 0; then
+                if [ "${fg_color_mode}" = "rgb" ]; then
+                    fg_color=($1 $2 $3)
+                    shift 3
+                else
+                    fg_color=$1
+                    shift
+                fi
+            else
+                echo "no style specified"
+                exit 1
+            fi
+        ;;
+        --foreground_color*)
+            fg_color="${1/[^=]*=/}"
+            if [ "${fg_color_mode}" = "rgb" ]; then
+                fg_color=($1 $2 $3)
+                shift 3
+            else
+                fg_color=$1
+                shift
+            fi
+        ;;
+        -bg)
+            shift
+            if test $# -gt 0; then
+                if [ "${bg_color_mode}" = "rgb" ]; then
+                    bg_color=($1 $2 $3)
+                    shift 3
+                else
+                    bg_color=$1
+                    shift
+                fi
+            else
+                echo "no style specified"
+                exit 1
+            fi
+        ;;
+        --background_color*)
+            bg_color="${1/[^=]*=/}"
+            if [ "${bg_color_mode}" = "rgb" ]; then
+                bg_color=($1 $2 $3)
+                shift 3
+            else
+                bg_color=$1
+                shift
+            fi
+        ;;
+        -ul)
+            shift
+            if test $# -gt 0; then
+                if [ "${ul_color_mode}" = "rgb" ]; then
+                    ul_color=($1 $2 $3)
+                    shift 4
+                else
+                    ul_color=$1
+                    shift
+                fi
+            else
+                echo "no style specified"
+                exit 1
+            fi
+        ;;
+        --underline_color*)
+            if [ "${ul_color_mode}" = "rgb" ]; then
+                ul_color=($1 $2 $3)
+                shift 3
+            else
+                ul_color=$1
+                shift
+            fi
+        ;;
+        -rgb)
+            fg_color_mode='rgb'
+            bg_color_mode='rgb'
+            ul_color_mode='rgb'
+            shift
+        ;;
+        -r)
+            shift
+            if [ "${style}" != "" ] || [ "${fg_color}" != "" ] || [ "${bg_color}" != "" ] || [ "${ul_color}" != "" ]; then
+                echo "no other arguments are allowed when -r is supplied"
+                exit 1
+            fi
+            return_reset=true
+        ;;
+        -p|--print)
+            shift
+            print_escaped=true
+        ;;
+        *)
+            print_help
+        ;;
+    esac
+done
+
+format_array=()
+
+if [[ " ${style[*]} " =~ " reset " ]]; then format_array+=("0"); fi
+if [[ " ${style[*]} " =~ " default " ]]; then format_array+=("10"); fi
+if [[ " ${style[*]} " =~ " bold " ]]; then format_array+=("1"); fi
+if [[ " ${style[*]} " =~ " notbold " ]]; then format_array+=("22"); fi
+if [[ " ${style[*]} " =~ " faint " ]]; then format_array+=("2"); fi
+if [[ " ${style[*]} " =~ " notfaint " ]]; then format_array+=("22"); fi
+if [[ " ${style[*]} " =~ " underline " ]]; then format_array+=("4"); fi
+if [[ " ${style[*]} " =~ " notunderline " ]]; then format_array+=("24"); fi
+if [[ " ${style[*]} " =~ " dunderline " ]]; then format_array+=("21"); fi
+if [[ " ${style[*]} " =~ " notdunderline " ]]; then format_array+=("24"); fi
+if [[ " ${style[*]} " =~ " italic " ]]; then format_array+=("3"); fi
+if [[ " ${style[*]} " =~ " notitalic " ]]; then format_array+=("23"); fi
+if [[ " ${style[*]} " =~ " invert " ]]; then format_array+=("7"); fi
+if [[ " ${style[*]} " =~ " notinvert " ]]; then format_array+=("27"); fi
+if [[ " ${style[*]} " =~ " strike " ]]; then format_array+=("9"); fi
+if [[ " ${style[*]} " =~ " notstrike " ]]; then format_array+=("29"); fi
+
+declare -A basic_colors=(
+    ["black"]="30" 
+    ["dark gray"]="90" 
+    ["blue"]="34" 
+    ["light blue"]="94" 
+    ["green"]="32" 
+    ["light green"]="92" 
+    ["cyan"]="36" 
+    ["light cyan"]="96" 
+    ["red"]="31" 
+    ["light red"]="91" 
+    ["purple"]="35" 
+    ["light purple"]="95" 
+    ["brown"]="33" 
+    ["yellow"]="93" 
+    ["light gray"]="37" 
+    ["white"]="97"
+)
+
+if [ "$fg_color_mode" = "8" ] && [ -n "$fg_color" ]; then format_array+=("$((0 +  ${basic_colors[${fg_color}]}))"); fi
+if [ "$bg_color_mode" = "8" ] && [ -n "$bg_color" ]; then format_array+=("$((10 + ${basic_colors[${bg_color}]}))"); fi
+if [ "$ul_color_mode" = "8" ] && [ -n "$ul_color" ]; then format_array+=("$((20 + ${basic_colors[${ul_color}]}))"); fi
+
+if [ "$fg_color_mode" = "rgb" ] && [ -n "$fg_color" ]; then format_array+=("38" "2" $fg_color); fi
+if [ "$bg_color_mode" = "rgb" ] && [ -n "$bg_color" ]; then format_array+=("48" "2" $bg_color); fi
+if [ "$ul_color_mode" = "rgb" ] && [ -n "$ul_color" ]; then format_array+=("58" "2" $ul_color); fi
+
+if [[ "${fg_color}" = "default" ]]; then format_array+=("39"); fi
+if [[ "${bg_color}" = "default" ]]; then format_array+=("49"); fi
+if [[ "${ul_color}" = "default" ]]; then format_array+=("59"); fi
+
+format_str="$(printf ";%s" "${format_array[@]}")"
+format_code="\033[${format_str:1}m"
+
+if $return_reset; then
+    format_code="\033[0m"
+fi
+
+if $print_escaped; then
+    printf '%s\n' "${format_code}"
+else
+    printf "${format_code}"
+fi
+
